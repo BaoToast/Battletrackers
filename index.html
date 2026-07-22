@@ -29,7 +29,7 @@
     .bottom-tabbar button:hover{filter:brightness(.97)}
     .bottom-tabbar button.active{color:var(--primary);background:var(--focus-bg);border-color:var(--primary)}
     .bottom-tabbar .tab-icon{font-size:1.3rem;line-height:1}
-    @media(min-width:900px){.bottom-tabbar{max-width:460px;left:50%;transform:translateX(-50%);border-radius:16px 16px 0 0;border-left:1px solid var(--line);border-right:1px solid var(--line)}}
+    @media(min-width:900px) and (hover:hover) and (pointer:fine){.bottom-tabbar{max-width:460px;left:50%;transform:translateX(-50%);border-radius:16px 16px 0 0;border-left:1px solid var(--line);border-right:1px solid var(--line)}}
     .floating-next-turn{bottom:calc(78px + env(safe-area-inset-bottom))}
   </style>
 </head>
@@ -147,6 +147,18 @@
       window.addEventListener('load',()=>{
         navigator.serviceWorker.register('./sw.js').catch(err=>console.error('Service Worker \u8a3b\u518a\u5931\u6557',err));
       });
+      navigator.serviceWorker.addEventListener('message',event=>{
+        if(event.data&&event.data.type==='SW_UPDATED')showUpdateBanner();
+      });
+    }
+    function showUpdateBanner(){
+      if(document.querySelector('#swUpdateBanner'))return;
+      const bar=document.createElement('div');
+      bar.id='swUpdateBanner';
+      bar.style.cssText='position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);z-index:999;background:var(--primary);color:var(--primary-text);padding:10px 16px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.3);font-size:.9rem;display:flex;align-items:center;gap:10px;cursor:pointer';
+      bar.innerHTML='&#128260; &#26377;&#26032;&#29256;&#26412;&#21487;&#29992;&#65292;&#40670;&#25802;&#37325;&#26032;&#25972;&#29702; <button type="button" style="background:rgba(255,255,255,.25);color:inherit;border:none;padding:4px 10px;border-radius:999px">&#37325;&#26032;&#25972;&#29702;</button>';
+      bar.addEventListener('click',()=>location.reload());
+      document.body.appendChild(bar);
     }
     const saveMemory=(key,value)=>setStorageItem(key,JSON.stringify(value));
     const loadCurrentState=()=>{try{const raw=localStorage.getItem('battleTrackerCurrentState');return raw?JSON.parse(raw):null}catch{return null}};
@@ -260,9 +272,10 @@
     }
     function updateUndo(){document.querySelector('#undo').disabled=history.length===0;document.querySelector('#redo').disabled=future.length===0}
     function historySnapshot(){return {players,monsters,actionTags,statusTemplates,monsterTemplates,attributeTemplates,barTemplates,passiveTemplates,paletteColors,initiativeOrder,squads,roundCounter,currentTurnId}}
+    const cloneState=typeof structuredClone==='function'?structuredClone:x=>JSON.parse(JSON.stringify(x));
     function saveHistory(){
       if(!historyBurstOpen){
-        history.push(JSON.stringify(historySnapshot()));
+        history.push(cloneState(historySnapshot()));
         if(history.length>50)history.shift();
         future.length=0;
         updateUndo();
@@ -273,8 +286,8 @@
     }
     function closeHistoryBurst(){if(historyBurstTimer){clearTimeout(historyBurstTimer);historyBurstTimer=null}historyBurstOpen=false}
     function applyHistoryState(state){closeHistoryBurst();players=state.players;monsters=state.monsters;actionTags=state.actionTags;statusTemplates=state.statusTemplates;monsterTemplates=state.monsterTemplates;attributeTemplates=state.attributeTemplates||[];barTemplates=state.barTemplates||[];passiveTemplates=state.passiveTemplates||[];paletteColors=state.paletteColors;initiativeOrder=state.initiativeOrder||[...players,...monsters].map(u=>u.id);squads=state.squads||[];roundCounter=typeof state.roundCounter==='number'?state.roundCounter:roundCounter;currentTurnId=typeof state.currentTurnId==='string'?state.currentTurnId:null;saveMemory('battleTrackerStatusTemplates',statusTemplates);saveMemory('battleTrackerMonsterTemplates',monsterTemplates);saveMemory('battleTrackerAttributeTemplates',attributeTemplates);saveMemory('battleTrackerBarTemplates',barTemplates);saveMemory('battleTrackerPassiveTemplates',passiveTemplates);saveMemory('battleTrackerPalette',paletteColors);document.querySelector('#roundValue').textContent=roundCounter;render();updateUndo()}
-    function restoreHistory(){if(!history.length)return;future.push(JSON.stringify(historySnapshot()));if(future.length>50)future.shift();applyHistoryState(JSON.parse(history.pop()))}
-    function redoHistory(){if(!future.length)return;history.push(JSON.stringify(historySnapshot()));if(history.length>50)history.shift();applyHistoryState(JSON.parse(future.pop()))}
+    function restoreHistory(){if(!history.length)return;future.push(cloneState(historySnapshot()));if(future.length>50)future.shift();applyHistoryState(history.pop())}
+    function redoHistory(){if(!future.length)return;history.push(cloneState(historySnapshot()));if(history.length>50)history.shift();applyHistoryState(future.pop())}
     function renderPalette(){const selected=document.querySelector('#unitColor').value.toLowerCase();colorPaletteElement.innerHTML=paletteColors.map(color=>`<span class="swatch-wrap"><button type="button" class="swatch ${color.toLowerCase()===selected?'selected':''}" data-color="${escapeAttr(color)}" style="background:${escapeAttr(color)}"></button><button type="button" class="swatch-delete" data-color-delete="${escapeAttr(color)}">&#215;</button></span>`).join('')||'<span class="status">&#23578;&#28961;&#24120;&#29992;&#33394;</span>'}
     function summaryTableHtml(units){
       if(!units.length)return'';
@@ -328,35 +341,48 @@
         const savedStatuses=unitTemplateListHtml(unit.id,statusTemplates,{addAttr:'template-add',idAttr:'template-id',deleteAttr:'template-delete',emptyText:'&#27809;&#26377;&#35352;&#25014;&#30340;&#29376;&#24907;&#27161;&#31844;'});
         return `<article class="card ${unit.type} ${unit.isBoss?'boss':''} ${turnEnded?'turn-ended':''} ${severityClass}" data-card-id="${unit.id}" data-turn-toggle="${unit.id}" style="--unit-color:${sanitizeColor(unit.color,'#4c78a4')}"><div class="head"><h2>${icon} <input type="text" class="unit-name-input" data-unit-name="${unit.id}" value="${escapeAttr(unit.name)}" maxlength="40" title="&#25353;&#20035;&#21487;&#20462;&#25913;&#21517;&#31281;&#25110;&#32232;&#34399;" onclick="event.stopPropagation()"><input type="color" class="unit-color-picker" data-unit-color="${unit.id}" value="${sanitizeColor(unit.color,'#4c78a4')}" title="&#26356;&#25913;&#38991;&#33394;" onclick="event.stopPropagation()"></h2>${titlePassiveHtml(unit)}${titleAttributeHtml(unit)}${titleStatusHtml(unit)}${hpInlineHtml(unit)}</div>${squadBadge}${bossBadge}<div class="bar-row"><button data-id="${unit.id}" data-action="damage" class="hp-btn minus" title="&#38477;&#20302;&#34880;&#37327;">&#8722;</button><div class="bar"><div class="fill" style="width:${percent}%;${low}"></div></div><button data-id="${unit.id}" data-action="heal" class="hp-btn plus" title="&#24674;&#24489;&#34880;&#37327;">+</button><input class="hp-amount" data-amount type="number" min="1" step="1" value="1" aria-label="&#34880;&#37327;&#38911;&#21205;&#25976;&#20540;"></div>${barsListHtml(unit)}<div class="status">${turnEnded?'&#22238;&#21512;&#32080;&#26463;':state} (${percent}%)${thresholdWarning}</div><button type="button" class="manage-toggle" data-manage-toggle="${unit.id}">${expandedManageIds.has(unit.id)?'\u25b2 \u6536\u5408\u7ba1\u7406':'\u25bc \u7ba1\u7406\u72c0\u614b\u30fb\u5c6c\u6027\u30fb\u6578\u503c\u689d'}</button><div class="manage-panel" data-manage-panel="${unit.id}" ${expandedManageIds.has(unit.id)?'':'hidden'}><div class="conditions"><div class="condition-title">&#29376;&#24907; / &#21097;&#39192;&#22238;&#21512;</div><div class="condition-list">${conditions}</div><form class="condition-form" data-status-form="${unit.id}"><div class="saved-status-tags">${savedStatuses}</div><input name="statusName" maxlength="20" required placeholder="&#29376;&#24907;&#21517;&#31281;"><select name="statusKind"><option value="buff">&#22686;&#30410;</option><option value="debuff">&#36000;&#38754;</option></select><input name="statusTurns" type="number" min="1" max="999" value="1" required><button class="primary">&#26032;&#22686;</button></form></div>${thresholdSection}${attributeHtml(unit)}${passiveFormHtml(unit)}${addBarFormHtml(unit)}${memoryHtml(unit)}</div><div class="manage">${unit.type==='monster'?`<button type="button" data-monster-remember="${unit.id}" title="將血量上限/顏色/被動能力/自訂屬性/數值條存成怪物範本">💾 記住目前設定</button><button type="button" data-monster-duplicate="${unit.id}" title="複製出一隻設定完全相同的新怪物(含當下狀態)">📋 複製</button>${unit.isBoss?`<button type="button" data-boss-reset="${unit.id}" title="血量補滿、警戒線觸發狀態重設、自動附加的被動一併移除">&#8635; 重置頭目狀態</button>`:''}`:''}<button class="danger" data-id="${unit.id}" data-action="delete">&#21024;&#38500;</button></div></article>`;
     }
-    function reconcileCardGrid(container,units,emptyHtml){
+    function reconcileCardGrid(container,units,emptyHtml,contextSig){
       if(!units.length){container.innerHTML=emptyHtml;return}
       if(container.firstElementChild&&!container.firstElementChild.classList.contains('card')){container.innerHTML=''}
       const existing=new Map();
       container.querySelectorAll(':scope > .card').forEach(node=>existing.set(node.dataset.cardId,node));
       let cursor=container.firstElementChild;
       units.forEach(unit=>{
-        const html=cardHtml(unit);
         let node=existing.get(unit.id);
-        if(node){
-          existing.delete(unit.id);
-          if(node.outerHTML!==html){
+        let squadSig='';
+        if(unit.type==='monster'&&unit.squadId){
+          const squad=findSquad(unit.squadId);
+          const members=squadMembers(unit.squadId);
+          squadSig='|SQ:'+(squad?squad.name:'')+':'+members.map(m=>m.id+','+m.hp).join(';');
+        }
+        const sig=contextSig+'|M:'+(expandedManageIds.has(unit.id)?1:0)+squadSig+'|U:'+JSON.stringify(unit);
+        const unchanged=node&&cardSigCache.get(unit.id)===sig;
+        if(!unchanged){
+          const html=cardHtml(unit);
+          cardSigCache.set(unit.id,sig);
+          if(node){
+            existing.delete(unit.id);
+            if(node.outerHTML!==html){
+              const tpl=document.createElement('template');
+              tpl.innerHTML=html;
+              const fresh=tpl.content.firstElementChild;
+              if(cursor===node)cursor=fresh;
+              node.replaceWith(fresh);
+              node=fresh;
+            }
+          }else{
             const tpl=document.createElement('template');
             tpl.innerHTML=html;
-            const fresh=tpl.content.firstElementChild;
-            if(cursor===node)cursor=fresh;
-            node.replaceWith(fresh);
-            node=fresh;
+            node=tpl.content.firstElementChild;
+            container.insertBefore(node,cursor);
           }
         }else{
-          const tpl=document.createElement('template');
-          tpl.innerHTML=html;
-          node=tpl.content.firstElementChild;
-          container.insertBefore(node,cursor);
+          existing.delete(unit.id);
         }
         if(node!==cursor)container.insertBefore(node,cursor);
         cursor=node.nextElementSibling;
       });
-      existing.forEach(node=>node.remove());
+      existing.forEach(node=>{cardSigCache.delete(node.dataset.cardId);node.remove()});
     }
     function attributeHtml(unit){const attributes=unit.attributes||[];const current=attributes.map(item=>`<span class="attribute" style="--attr-color:${sanitizeColor(item.color,'#4c78a4')}">${escapeHtml(item.name)} <input data-attribute-value="${unit.id}" data-attribute-id="${item.id}" value="${escapeAttr(String(item.value??''))}" placeholder="&#25976;&#20540;"><button data-attribute-delete="${unit.id}" data-attribute-id="${item.id}">&#215;</button></span>`).join('')||'<span class="status">&#28961;&#33258;&#35330;&#23660;&#24615;</span>';const templates=unitTemplateListHtml(unit.id,attributeTemplates,{addAttr:'attribute-template-add',idAttr:'attribute-template-id',deleteAttr:'attribute-template-delete',emptyText:'&#28961;&#35352;&#25014;&#23660;&#24615;'});return `<div class="attributes"><div class="condition-title">&#33258;&#35330;&#23660;&#24615;</div><div class="attribute-list">${current}</div><div class="saved-status-tags">${templates}</div><form class="attribute-form" data-attribute-form="${unit.id}"><span class="color-field"><input type="color" name="attributeColor" class="bar-color-picker" value="#4c78a4" title="&#23660;&#24615;&#38991;&#33394;"><span class="mini-palette">${miniPaletteHtml()}</span></span><input name="attributeName" maxlength="20" required placeholder="&#23660;&#24615;&#21517;&#31281;"><button class="primary">&#26032;&#22686;&#23660;&#24615;</button></form></div>`}
     function filterTagsHtml(units,filterSet,type){
@@ -365,7 +391,13 @@
       const batchActions=filterSet.size?`<span class="batch-actions"><input type="number" class="batch-amount" data-batch-amount="${type}" min="1" step="1" value="1" aria-label="\u6279\u6b21\u8858\u52d5\u6578\u503c"><button type="button" class="danger" data-batch-action="damage" data-batch-type="${type}" title="\u5c0d\u76ee\u524d\u7be9\u9078\u7684 ${filterSet.size} \u4f4d\u4e00\u6b21\u9020\u6210\u50b7\u5bb3">&#8722; \u6279\u6b21\u50b7\u5bb3</button><button type="button" class="good" data-batch-action="heal" data-batch-type="${type}" title="\u5c0d\u76ee\u524d\u7be9\u9078\u7684 ${filterSet.size} \u4f4d\u4e00\u6b21\u6cbb\u7642">&#65291; \u6279\u6b21\u6cbb\u7642</button></span>`:'';
       return `<span class="filter-label">\u7be9\u9078\u986f\u793a\uff1a</span>${tags}<button type="button" data-filter-reset="${type}" ${filterSet.size?'':'disabled'}>\u986f\u793a\u5168\u90e8</button>${batchActions}`;
     }
-    function miniPaletteHtml(){return paletteColors.map(c=>`<button type="button" class="mini-swatch" data-mini-swatch="${escapeAttr(c)}" style="background:${escapeAttr(c)}" title="${escapeAttr(c)}"></button>`).join('')}
+    function miniPaletteHtml(){
+      const sig=JSON.stringify(paletteColors);
+      if(cachedMiniPaletteSig===sig)return cachedMiniPaletteHtml;
+      cachedMiniPaletteSig=sig;
+      cachedMiniPaletteHtml=paletteColors.map(c=>`<button type="button" class="mini-swatch" data-mini-swatch="${escapeAttr(c)}" style="background:${escapeAttr(c)}" title="${escapeAttr(c)}"></button>`).join('');
+      return cachedMiniPaletteHtml;
+    }
     function barsListHtml(unit){
       const bars=unit.bars||[];
       const list=bars.map(bar=>{
@@ -387,7 +419,7 @@
     function titleStatusHtml(unit){const statuses=unit.statuses||[];return `<div class="title-status">${statuses.map(item=>`<span class="condition ${item.kind}">${item.kind==='buff'?'&#9650;':'&#9660;'} ${escapeHtml(item.name)}<span class="turns">${item.turns}&#22238;&#21512;</span> <button data-condition-turn="${unit.id}" data-status-id="${item.id}">-</button><button data-condition-plus="${unit.id}" data-status-id="${item.id}">+</button><button data-condition-delete="${unit.id}" data-status-id="${item.id}">&#215;</button></span>`).join('')}</div>`}
     function titlePassiveHtml(unit){const passives=unit.passives||[];if(!passives.length)return'';return `<div class="title-passives">${passives.map(item=>`<span class="passive" style="--passive-color:${sanitizeColor(passiveDisplayColor(unit,item),'#8a5cd6')}" title="${escapeAttr(item.name)}">&#10022; <span class="passive-text">${escapeHtml(item.name)}</span><button data-passive-delete="${unit.id}" data-passive-id="${item.id}">&#215;</button></span>`).join('')}</div>`}
     function titleAttributeHtml(unit){return `<div class="title-attributes">${(unit.attributes||[]).map(item=>`<span class="attribute" style="--attr-color:${sanitizeColor(item.color,'#4c78a4')}">${escapeHtml(item.name)} <input data-attribute-value="${unit.id}" data-attribute-id="${item.id}" value="${escapeAttr(String(item.value??''))}" placeholder="&#25976;&#20540;"><button data-attribute-delete="${unit.id}" data-attribute-id="${item.id}">&#215;</button></span>`).join('')}</div>`}
-    function currentSaveState(){return JSON.parse(JSON.stringify({players,monsters,actionTags,statusTemplates,monsterTemplates,attributeTemplates,barTemplates,passiveTemplates,paletteColors,initiativeOrder,squads}))}
+    function currentSaveState(){return cloneState({players,monsters,actionTags,statusTemplates,monsterTemplates,attributeTemplates,barTemplates,passiveTemplates,paletteColors,initiativeOrder,squads})}
     function loadSaveState(state){players=state.players||[];monsters=state.monsters||[];actionTags=state.actionTags||[];statusTemplates=state.statusTemplates||[];monsterTemplates=state.monsterTemplates||[];attributeTemplates=state.attributeTemplates||[];barTemplates=state.barTemplates||[];passiveTemplates=state.passiveTemplates||[];paletteColors=state.paletteColors||[...defaultPalette];initiativeOrder=state.initiativeOrder||[...players,...monsters].map(u=>u.id);squads=state.squads||[];saveMemory('battleTrackerStatusTemplates',statusTemplates);saveMemory('battleTrackerMonsterTemplates',monsterTemplates);saveMemory('battleTrackerAttributeTemplates',attributeTemplates);saveMemory('battleTrackerBarTemplates',barTemplates);saveMemory('battleTrackerPassiveTemplates',passiveTemplates);saveMemory('battleTrackerPalette',paletteColors)}
     function memoryHtml(unit){const bars=unitTemplateListHtml(unit.id,barTemplates,{addAttr:'bar-template-add',idAttr:'bar-template-id',deleteAttr:'bar-template-delete',emptyText:'&#28961;&#35352;&#25014;&#25976;&#20540;&#26465;'});return `<div class="memory-tags"><div class="condition-title">&#24050;&#35352;&#25014;&#25976;&#20540;&#26465;</div><div class="saved-status-tags">${bars}</div></div>`}
     function autosave(){saveMemory('battleTrackerCurrentState',{players,monsters,actionTags,playersExpanded,monstersExpanded,playerSummaryExpanded,monsterSummaryExpanded,initiativeOrder,initiativeExpanded,roundCounter,currentTurnId,shuffleEachRound,autoScrollOnNextTurn,squads})}
@@ -761,19 +793,52 @@
     let lastMonsterTemplatesSig=null;
     let lastSaveFilesSig=null;
     let lastPaletteSig=null;
+    let lastInitiativeSig=null;
+    let lastPlayerFilterSig=null;
+    let lastMonsterFilterSig=null;
+    let lastPlayerSummarySig=null;
+    let lastMonsterSummarySig=null;
+    const cardSigCache=new Map();
+    let cachedMiniPaletteHtml=null;
+    let cachedMiniPaletteSig=null;
     function render(){
       rebuildUnitMap();
       rebuildSquadMemberMap();
       syncInitiativeOrder();
-      document.querySelector('#initiativeList').innerHTML=initiativeTagsHtml();
+      const initiativeSig=JSON.stringify(initiativeOrder)+'|'+currentTurnId+'|'+JSON.stringify(players.map(u=>[u.id,u.name,u.color,u.turnEnded]))+'|'+JSON.stringify(monsters.map(u=>[u.id,u.name,u.color,u.turnEnded,Array.isArray(u.actionCards)?u.actionCards.map(c=>[c.id,c.name,c.turnEnded]):null]));
+      if(initiativeSig!==lastInitiativeSig){
+        document.querySelector('#initiativeList').innerHTML=initiativeTagsHtml();
+        lastInitiativeSig=initiativeSig;
+      }
       const visiblePlayers=playerFilter.size?players.filter(p=>playerFilter.has(p.id)):players;
       const visibleMonsters=sortMonstersForDisplay(monsterFilter.size?monsters.filter(m=>monsterFilter.has(m.id)):monsters);
-      reconcileCardGrid(playerCards,visiblePlayers,players.length?'<p class="empty">\u7be9\u9078\u5f8c\u6c92\u6709\u7b26\u5408\u7684\u73a9\u5bb6\u3002</p>':'<p class="empty">\u76ee\u524d\u6c92\u6709\u73a9\u5bb6\u3002</p>');
-      reconcileCardGrid(monsterCards,visibleMonsters,monsters.length?'<p class="empty">\u7be9\u9078\u5f8c\u6c92\u6709\u7b26\u5408\u7684\u602a\u7269\u3002</p>':'<p class="empty">\u76ee\u524d\u6c92\u6709\u602a\u7269\u3002</p>');
-      document.querySelector('#playerFilterBar').innerHTML=filterTagsHtml(players,playerFilter,'player');
-      document.querySelector('#monsterFilterBar').innerHTML=filterTagsHtml(sortMonstersForDisplay(monsters),monsterFilter,'monster');
-      document.querySelector('#playerSummary').innerHTML=summaryTableHtml(visiblePlayers);
-      document.querySelector('#monsterSummary').innerHTML=summaryTableHtml(visibleMonsters);
+      const statusTemplatesSig=JSON.stringify(statusTemplates);
+      const passiveTemplatesSig=JSON.stringify(passiveTemplates);
+      const barTemplatesSig=JSON.stringify(barTemplates);
+      const paletteColorsSig=JSON.stringify(paletteColors);
+      const cardContextSig=currentTurnId+'|'+statusTemplatesSig+'|'+passiveTemplatesSig+'|'+barTemplatesSig+'|'+paletteColorsSig;
+      reconcileCardGrid(playerCards,visiblePlayers,players.length?'<p class="empty">\u7be9\u9078\u5f8c\u6c92\u6709\u7b26\u5408\u7684\u73a9\u5bb6\u3002</p>':'<p class="empty">\u76ee\u524d\u6c92\u6709\u73a9\u5bb6\u3002</p>',cardContextSig);
+      reconcileCardGrid(monsterCards,visibleMonsters,monsters.length?'<p class="empty">\u7be9\u9078\u5f8c\u6c92\u6709\u7b26\u5408\u7684\u602a\u7269\u3002</p>':'<p class="empty">\u76ee\u524d\u6c92\u6709\u602a\u7269\u3002</p>',cardContextSig);
+      const playerFilterSig=JSON.stringify(players.map(p=>[p.id,p.name,p.color]))+'|'+JSON.stringify([...playerFilter]);
+      if(playerFilterSig!==lastPlayerFilterSig){
+        document.querySelector('#playerFilterBar').innerHTML=filterTagsHtml(players,playerFilter,'player');
+        lastPlayerFilterSig=playerFilterSig;
+      }
+      const monsterFilterSig=JSON.stringify(monsters.map(m=>[m.id,m.name,m.color]))+'|'+JSON.stringify([...monsterFilter]);
+      if(monsterFilterSig!==lastMonsterFilterSig){
+        document.querySelector('#monsterFilterBar').innerHTML=filterTagsHtml(sortMonstersForDisplay(monsters),monsterFilter,'monster');
+        lastMonsterFilterSig=monsterFilterSig;
+      }
+      const playerSummarySig=JSON.stringify(visiblePlayers);
+      if(playerSummarySig!==lastPlayerSummarySig){
+        document.querySelector('#playerSummary').innerHTML=summaryTableHtml(visiblePlayers);
+        lastPlayerSummarySig=playerSummarySig;
+      }
+      const monsterSummarySig=JSON.stringify(visibleMonsters);
+      if(monsterSummarySig!==lastMonsterSummarySig){
+        document.querySelector('#monsterSummary').innerHTML=summaryTableHtml(visibleMonsters);
+        lastMonsterSummarySig=monsterSummarySig;
+      }
       const actionTagsSig=JSON.stringify(actionTags);
       if(actionTagsSig!==lastActionTagsSig){
         actionTagsElement.innerHTML=actionTags.map(tag=>`<span><button class="tag ${tag.active?'':'off'}" data-tag-id="${tag.id}">${escapeHtml(tag.name)}</button><button class="tag-delete" title="\u522a\u9664\u6a19\u7c64" data-tag-delete="${tag.id}">&#215;</button></span>`).join('')||'<span class="empty">\u76ee\u524d\u6c92\u6709\u884c\u52d5\u6a19\u7c64\u3002</span>';
