@@ -1,4 +1,8 @@
-const CACHE_NAME = 'battle-tracker-6277ff89d4';
+// self.location.search 會是註冊時帶的查詢字串（例如 "?v=2026.07.23-2"），
+// 這樣快取名稱會自動跟著 index.html 裡的 APP_VERSION 換掉，
+// 不用每次發新版都手動記得改這裡的雜湊值。
+const SW_VERSION = new URLSearchParams(self.location.search).get('v') || 'dev';
+const CACHE_NAME = `battle-tracker-${SW_VERSION}`;
 const APP_SHELL = ['./', './index.html'];
 
 async function precache(cache) {

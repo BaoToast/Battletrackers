@@ -67,6 +67,7 @@
     <div class="tab-panel" id="tabPanelSystem" data-tab-panel="system">
     <div class="section-head" id="tabSectionSystem"><h2 class="section-title">&#9881;&#65039; &#31995;&#32113;</h2></div>
     <div class="theme-switch"><button type="button" id="btnCheckUpdate">&#128260; 檢查並更新版本</button></div>
+    <p class="subtitle" id="appVersionLabel" style="margin-top:-10px"></p>
     <section class="save-panel"><form class="save-form" id="saveForm"><input id="saveName" maxlength="30" required placeholder="&#23384;&#27284;&#21517;&#31281;"><button class="primary">&#20786;&#23384;&#30070;&#21069;&#29376;&#24907;</button></form><div class="save-list-toolbar" id="saveListToolbar" hidden><label class="squad-option" style="padding:6px 4px"><input type="checkbox" id="saveSelectAll"> &#20840;&#36984;</label><button type="button" class="danger" id="btnDeleteSelectedSaves" disabled>&#21034;&#38500;&#24050;&#36984; (0)</button></div><div class="save-list" id="saveList"></div></section>
     <div class="toolbar"><button type="button" id="btnExportData">&#128190; 匯出備份</button><button type="button" id="btnImportData">&#128194; 匯入備份</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
     <p class="subtitle" id="storageUsage" style="margin-top:-10px"></p>
@@ -116,6 +117,12 @@
     <button type="button" data-target="tabSectionSystem"><span class="tab-icon">⚙️</span>系統</button>
   </nav>
   <script>
+    // 每次發布新版本時，把這個字串換掉（日期或流水號都可以）。
+    // Service Worker 的註冊網址會帶上這個版本號當查詢字串，
+    // 瀏覽器會把它視為「不同的 sw.js 網址」而強制重新抓取、重新安裝，
+    // 才能保證每次更新 index.html 後，使用者的裝置真的會抓到新版本
+    // （否則瀏覽器只會比對 sw.js 本身的內容有沒有變，這裡沒變就永遠判斷「已是最新」）。
+    const APP_VERSION='2026.07.23-2';
     // uuid() 只在安全情境（https/localhost）且較新瀏覽器才存在；
     // 沒有的話（例如較舊的 iOS Safari、部分內嵌 WebView、或以 file:// 開啟）就退回手刻版本，
     // 避免頁面一載入就因為 ReferenceError 直接白屏。
@@ -257,7 +264,7 @@
     let updateCheckResolver=null;
     if('serviceWorker' in navigator){
       window.addEventListener('load',()=>{
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(APP_VERSION)}`)
           .then(reg=>{swRegistration=reg})
           .catch(err=>console.error('Service Worker \u8a3b\u518a\u5931\u6557',err));
       });
@@ -283,6 +290,7 @@
       bar.addEventListener('click',()=>{flushAutosave();location.reload()});
       document.body.appendChild(bar);
     }
+    document.querySelector('#appVersionLabel').textContent=`\u76ee\u524d\u7248\u672c\uff1a${APP_VERSION}`;
     document.querySelector('#btnCheckUpdate').addEventListener('click',async()=>{
       const btn=document.querySelector('#btnCheckUpdate');
       if(!('serviceWorker' in navigator)){alert('\u6b64\u700f\u89bd\u5668\u4e0d\u652f\u63f4\u81ea\u52d5\u66f4\u65b0\u529f\u80fd\u3002');return}
