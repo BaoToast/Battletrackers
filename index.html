@@ -122,7 +122,7 @@
     // 瀏覽器會把它視為「不同的 sw.js 網址」而強制重新抓取、重新安裝，
     // 才能保證每次更新 index.html 後，使用者的裝置真的會抓到新版本
     // （否則瀏覽器只會比對 sw.js 本身的內容有沒有變，這裡沒變就永遠判斷「已是最新」）。
-    const APP_VERSION='2026.07.23-6';
+    const APP_VERSION='2026.07.23-7';
     // uuid() 只在安全情境（https/localhost）且較新瀏覽器才存在；
     // 沒有的話（例如較舊的 iOS Safari、部分內嵌 WebView、或以 file:// 開啟）就退回手刻版本，
     // 避免頁面一載入就因為 ReferenceError 直接白屏。
@@ -1528,6 +1528,11 @@ function adjustUnitHp(unit,action,amount){
       if(bossReset){
         const unit=findUnit(bossReset.dataset.bossReset);
         if(unit&&unit.isBoss){
+          const hasTriggeredThreshold=Array.isArray(unit.hpThresholds)&&unit.hpThresholds.some(t=>t.triggered);
+          const hasThresholdPassive=(unit.passives||[]).some(p=>p.sourceThresholdId);
+          const hasEndedCard=Array.isArray(unit.actionCards)&&unit.actionCards.some(c=>c.turnEnded);
+          const willChange=unit.hp!==unit.maxHp||unit.turnEnded||hasTriggeredThreshold||hasThresholdPassive||hasEndedCard;
+          if(!willChange)return;
           if(!confirm(`確定要重置「${unit.name}」的狀態嗎？血量會補滿、警戒線觸發狀態會重設、自動附加的被動會移除，此動作可用「返回上一步」復原。`))return;
           saveHistory();
           unit.hp=unit.maxHp;
@@ -2087,10 +2092,10 @@ function adjustUnitHp(unit,action,amount){
       actionTags.forEach(tag=>{tag.active=true});
       render();
     });
-    document.querySelector('#resetPlayerTurns').addEventListener('click',()=>{saveHistory();players.forEach(player=>player.turnEnded=false);render()});
-    document.querySelector('#resetPlayerHpStatus').addEventListener('click',()=>{saveHistory();players.forEach(player=>{player.hp=player.maxHp;player.statuses=[]});render()});
-    document.querySelector('#resetMonsterTurns').addEventListener('click',()=>{saveHistory();monsters.forEach(monster=>{monster.turnEnded=false;if(Array.isArray(monster.actionCards))monster.actionCards.forEach(c=>c.turnEnded=false)});render()});
-    document.querySelector('#resetAllTurns').addEventListener('click',()=>{saveHistory();players.forEach(player=>player.turnEnded=false);monsters.forEach(monster=>{monster.turnEnded=false;if(Array.isArray(monster.actionCards))monster.actionCards.forEach(c=>c.turnEnded=false)});currentTurnId=null;render()});
+    document.querySelector('#resetPlayerTurns').addEventListener('click',()=>{if(!players.some(player=>player.turnEnded))return;saveHistory();players.forEach(player=>player.turnEnded=false);render()});
+    document.querySelector('#resetPlayerHpStatus').addEventListener('click',()=>{if(!players.some(player=>player.hp!==player.maxHp||player.statuses.length))return;saveHistory();players.forEach(player=>{player.hp=player.maxHp;player.statuses=[]});render()});
+    document.querySelector('#resetMonsterTurns').addEventListener('click',()=>{if(!monsters.some(monster=>monster.turnEnded||(Array.isArray(monster.actionCards)&&monster.actionCards.some(c=>c.turnEnded))))return;saveHistory();monsters.forEach(monster=>{monster.turnEnded=false;if(Array.isArray(monster.actionCards))monster.actionCards.forEach(c=>c.turnEnded=false)});render()});
+    document.querySelector('#resetAllTurns').addEventListener('click',()=>{const willChange=currentTurnId!==null||players.some(player=>player.turnEnded)||monsters.some(monster=>monster.turnEnded||(Array.isArray(monster.actionCards)&&monster.actionCards.some(c=>c.turnEnded)));if(!willChange)return;saveHistory();players.forEach(player=>player.turnEnded=false);monsters.forEach(monster=>{monster.turnEnded=false;if(Array.isArray(monster.actionCards))monster.actionCards.forEach(c=>c.turnEnded=false)});currentTurnId=null;render()});
     document.querySelector('#nextTurn').addEventListener('click',nextTurn);
     document.querySelector('#floatingNextTurn').addEventListener('click',nextTurn);
     document.querySelector('#clearAllMonsters').addEventListener('click',()=>{if(!monsters.length){alert('\u76ee\u524d\u6c92\u6709\u602a\u7269\u3002');return}if(!confirm('\u78ba\u5b9a\u8981\u6e05\u7a7a\u5834\u4e0a\u6240\u6709\u602a\u7269\u55ce\uff1f\u9019\u6642\u5019\u4e5f\u6703\u89e3\u6563\u6240\u6709\u602a\u7269\u5c0f\u968a\u3002'))return;saveHistory();monsters=[];squads=[];monsterFilter.clear();render()});
