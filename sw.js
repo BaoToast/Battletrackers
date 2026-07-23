@@ -1,4 +1,4 @@
-const CACHE_NAME = 'battle-tracker-145ce72e87';
+const CACHE_NAME = 'battle-tracker-777d8cee25';
 const APP_SHELL = ['./', './index.html'];
 
 self.addEventListener('install', event => {
