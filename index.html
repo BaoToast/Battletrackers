@@ -144,12 +144,22 @@
     updateWakeLockButton();
     if(keepScreenAwakePref)requestWakeLock();
     if('serviceWorker' in navigator){
+      let swRegistration=null;
       window.addEventListener('load',()=>{
-        navigator.serviceWorker.register('./sw.js').catch(err=>console.error('Service Worker \u8a3b\u518a\u5931\u6557',err));
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg=>{swRegistration=reg})
+          .catch(err=>console.error('Service Worker \u8a3b\u518a\u5931\u6557',err));
       });
       navigator.serviceWorker.addEventListener('message',event=>{
         if(event.data&&event.data.type==='SW_UPDATED')showUpdateBanner();
       });
+      // \u4e3b\u52d5\u6aa2\u67e5\u65b0\u7248\u672c\uff1a\u700f\u89bd\u5668\u9810\u8a2d\u53ea\u6703\u5728\u80cc\u666f\u4f4e\u983b\u7387\u5730\u6aa2\u67e5 sw.js \u662f\u5426\u66f4\u65b0\uff08\u6709\u6642\u9694\u591a\u5c0f\u6642\u4e0d\u7b49\uff09\uff0c
+      // \u9019\u88e1\u5728\u4f7f\u7528\u8005\u56de\u5230\u524d\u53f0\u6642\u3001\u4ee5\u53ca\u9577\u6642\u9593\u958b\u8457\u6642\u5b9a\u671f\u4e3b\u52d5\u547c\u53eb registration.update()\uff0c
+      // \u8b93\u65b0\u7248\u672c\u90e8\u7f72\u5f8c\u80fd\u66f4\u5feb\u88ab\u5075\u6e2c\u5230\u4e26\u9ede\u4eae\u300c\u91cd\u65b0\u6574\u7406\u300d\u63d0\u793a\u3002
+      document.addEventListener('visibilitychange',()=>{
+        if(document.visibilityState==='visible')swRegistration?.update().catch(()=>{});
+      });
+      setInterval(()=>{swRegistration?.update().catch(()=>{})},30*60*1000);
     }
     function showUpdateBanner(){
       if(document.querySelector('#swUpdateBanner'))return;
@@ -342,6 +352,22 @@
         const savedStatuses=unitTemplateListHtml(unit.id,statusTemplates,{addAttr:'template-add',idAttr:'template-id',deleteAttr:'template-delete',emptyText:'&#27809;&#26377;&#35352;&#25014;&#30340;&#29376;&#24907;&#27161;&#31844;'});
         return `<article class="card ${unit.type} ${unit.isBoss?'boss':''} ${turnEnded?'turn-ended':''} ${severityClass}" data-card-id="${unit.id}" data-turn-toggle="${unit.id}" style="--unit-color:${sanitizeColor(unit.color,'#4c78a4')}"><div class="head"><h2>${icon} <input type="text" class="unit-name-input" data-unit-name="${unit.id}" value="${escapeAttr(unit.name)}" maxlength="40" title="&#25353;&#20035;&#21487;&#20462;&#25913;&#21517;&#31281;&#25110;&#32232;&#34399;" onclick="event.stopPropagation()"><input type="color" class="unit-color-picker" data-unit-color="${unit.id}" value="${sanitizeColor(unit.color,'#4c78a4')}" title="&#26356;&#25913;&#38991;&#33394;" onclick="event.stopPropagation()"></h2>${titlePassiveHtml(unit)}${titleAttributeHtml(unit)}${titleStatusHtml(unit)}${hpInlineHtml(unit)}</div>${squadBadge}${bossBadge}<div class="bar-row"><button data-id="${unit.id}" data-action="damage" class="hp-btn minus" title="&#38477;&#20302;&#34880;&#37327;">&#8722;</button><div class="bar"><div class="fill" style="width:${percent}%;${low}"></div></div><button data-id="${unit.id}" data-action="heal" class="hp-btn plus" title="&#24674;&#24489;&#34880;&#37327;">+</button><input class="hp-amount" data-amount type="number" min="1" step="1" value="1" aria-label="&#34880;&#37327;&#38911;&#21205;&#25976;&#20540;"></div>${barsListHtml(unit)}<div class="status">${turnEnded?'&#22238;&#21512;&#32080;&#26463;':state} (${percent}%)${thresholdWarning}</div><button type="button" class="manage-toggle" data-manage-toggle="${unit.id}">${expandedManageIds.has(unit.id)?'\u25b2 \u6536\u5408\u7ba1\u7406':'\u25bc \u7ba1\u7406\u72c0\u614b\u30fb\u5c6c\u6027\u30fb\u6578\u503c\u689d'}</button><div class="manage-panel" data-manage-panel="${unit.id}" ${expandedManageIds.has(unit.id)?'':'hidden'}><div class="conditions"><div class="condition-title">&#29376;&#24907; / &#21097;&#39192;&#22238;&#21512;</div><div class="condition-list">${conditions}</div><form class="condition-form" data-status-form="${unit.id}"><div class="saved-status-tags">${savedStatuses}</div><input name="statusName" maxlength="20" required placeholder="&#29376;&#24907;&#21517;&#31281;"><select name="statusKind"><option value="buff">&#22686;&#30410;</option><option value="debuff">&#36000;&#38754;</option></select><input name="statusTurns" type="number" min="1" max="999" value="1" required><button class="primary">&#26032;&#22686;</button></form></div>${thresholdSection}${attributeHtml(unit)}${passiveFormHtml(unit)}${addBarFormHtml(unit)}${memoryHtml(unit)}</div><div class="manage">${unit.type==='monster'?`<button type="button" data-monster-remember="${unit.id}" title="將血量上限/顏色/被動能力/自訂屬性/數值條存成怪物範本">💾 記住目前設定</button><button type="button" data-monster-duplicate="${unit.id}" title="複製出一隻設定完全相同的新怪物(含當下狀態)">📋 複製</button>${unit.isBoss?`<button type="button" data-boss-reset="${unit.id}" title="血量補滿、警戒線觸發狀態重設、自動附加的被動一併移除">&#8635; 重置頭目狀態</button>`:''}`:''}<button class="danger" data-id="${unit.id}" data-action="delete">&#21024;&#38500;</button></div></article>`;
     }
+    function unitSig(unit){
+      let s=unit.id+'|'+unit.name+'|'+unit.hp+'|'+unit.maxHp+'|'+unit.color+'|'+(unit.turnEnded?1:0)+'|'+(unit.isBoss?1:0)+'|'+(unit.squadId||'');
+      const statuses=unit.statuses;
+      if(statuses&&statuses.length){s+='|S';for(let i=0;i<statuses.length;i++){const x=statuses[i];s+=x.id+','+x.kind+','+x.name+','+x.turns+';'}}
+      const attributes=unit.attributes;
+      if(attributes&&attributes.length){s+='|A';for(let i=0;i<attributes.length;i++){const x=attributes[i];s+=x.id+','+x.name+','+x.value+','+x.color+';'}}
+      const bars=unit.bars;
+      if(bars&&bars.length){s+='|B';for(let i=0;i<bars.length;i++){const x=bars[i];s+=x.id+','+x.name+','+x.value+','+x.maxValue+','+x.color+';'}}
+      const passives=unit.passives;
+      if(passives&&passives.length){s+='|P';for(let i=0;i<passives.length;i++){const x=passives[i];s+=x.id+','+x.name+','+x.color+';'}}
+      const cards=unit.actionCards;
+      if(cards&&cards.length){s+='|C';for(let i=0;i<cards.length;i++){const x=cards[i];s+=x.id+','+x.name+','+(x.turnEnded?1:0)+';'}}
+      const thresholds=unit.hpThresholds;
+      if(thresholds&&thresholds.length){s+='|T';for(let i=0;i<thresholds.length;i++){const x=thresholds[i];s+=x.id+','+x.value+','+x.passiveName+','+(x.triggered?1:0)+','+(x.autoRemove?1:0)+';'}}
+      return s;
+    }
     function reconcileCardGrid(container,units,emptyHtml,contextSig){
       if(!units.length){container.innerHTML=emptyHtml;return}
       if(container.firstElementChild&&!container.firstElementChild.classList.contains('card')){container.innerHTML=''}
@@ -356,7 +382,7 @@
           const members=squadMembers(unit.squadId);
           squadSig='|SQ:'+(squad?squad.name:'')+':'+members.map(m=>m.id+','+m.hp).join(';');
         }
-        const sig=contextSig+'|M:'+(expandedManageIds.has(unit.id)?1:0)+squadSig+'|U:'+JSON.stringify(unit);
+        const sig=contextSig+'|M:'+(expandedManageIds.has(unit.id)?1:0)+squadSig+'|U:'+unitSig(unit);
         const unchanged=node&&cardSigCache.get(unit.id)===sig;
         if(!unchanged){
           const html=cardHtml(unit);
@@ -1244,60 +1270,64 @@
         container.addEventListener('pointercancel',onPointerCancel);
       });
     })();
-    document.querySelector('#saveForm').addEventListener('submit',event=>{event.preventDefault();const input=document.querySelector('#saveName');const name=input.value.trim();if(!name)return;const old=saveFiles.find(file=>file.name===name);if(!old&&saveFiles.length>=MAX_SAVE_FILES){alert(`\u5b58\u6a94\u6578\u91cf\u5df2\u9054\u4e0a\u9650\uff08${MAX_SAVE_FILES} \u7b46\uff09\uff0c\u8acb\u5148\u522a\u9664\u4e00\u4e9b\u820a\u5b58\u6a94\u518d\u65b0\u589e\u3002`);return}const file={id:old?.id||crypto.randomUUID(),name,state:currentSaveState()};if(old)Object.assign(old,file);else saveFiles.push(file);saveMemory('battleTrackerSaveFiles',saveFiles);input.value='';render()});
-    document.querySelector('#tagForm').addEventListener('submit',event=>{event.preventDefault();const input=document.querySelector('#tagName');const name=input.value.trim();if(!name)return;saveHistory();actionTags.push({id:crypto.randomUUID(),name,active:true});input.value='';render()});
-    document.querySelector('#resetTags').addEventListener('click',()=>{saveHistory();actionTags.forEach(tag=>tag.active=true);render()});
-    document.querySelector('main').addEventListener('submit',event=>{const form=event.target.closest('[data-status-form]');if(!form)return;event.preventDefault();const unit=findUnit(form.dataset.statusForm);if(!unit)return;const data=new FormData(form);const name=String(data.get('statusName')).trim();const turns=Number(data.get('statusTurns'));if(!name||!Number.isInteger(turns)||turns<1)return;saveHistory();const kind=data.get('statusKind');unit.statuses.push({id:crypto.randomUUID(),name,kind,turns});const old=statusTemplates.find(item=>item.name===name&&item.kind===kind);if(old){old.turns=turns}else{pushWithLimit(statusTemplates,{id:crypto.randomUUID(),name,kind,turns},MAX_TEMPLATES)}saveMemory('battleTrackerStatusTemplates',statusTemplates);render()});
-    document.querySelector('main').addEventListener('submit',event=>{const form=event.target.closest('[data-attribute-form]');if(!form)return;event.preventDefault();const unit=findUnit(form.dataset.attributeForm);if(!unit)return;const data=new FormData(form);const name=String(data.get('attributeName')).trim();const color=String(data.get('attributeColor')||'#4c78a4');if(!name)return;saveHistory();(unit.attributes||(unit.attributes=[])).push({id:crypto.randomUUID(),name,value:'',color});const oldTemplate=attributeTemplates.find(item=>item.name===name);if(oldTemplate){oldTemplate.color=color}else{pushWithLimit(attributeTemplates,{id:crypto.randomUUID(),name,color},MAX_TEMPLATES)}saveMemory('battleTrackerAttributeTemplates',attributeTemplates);render()});
-    document.querySelector('main').addEventListener('submit',event=>{const form=event.target.closest('[data-boss-threshold-form]');if(!form)return;event.preventDefault();const unit=findUnit(form.dataset.bossThresholdForm);if(!unit||!unit.isBoss)return;const data=new FormData(form);const value=Math.floor(Number(data.get('thresholdValue')));const passiveName=String(data.get('thresholdPassive')||'').trim().slice(0,30);const autoRemove=data.get('thresholdAutoRemove')==='on';if(!Number.isFinite(value)||value<1||value>999999){alert('\u8acb\u8f38\u5165\u6709\u6548\u7684\u8840\u91cf\u6578\u503c\u3002');return}saveHistory();if(!Array.isArray(unit.hpThresholds))unit.hpThresholds=[];if(!unit.hpThresholds.some(t=>t.value===value))unit.hpThresholds.push({id:crypto.randomUUID(),value,passiveName,triggered:false,autoRemove});unit.hpThresholds=unit.hpThresholds.sort((a,b)=>b.value-a.value).slice(0,5);checkHpThresholds(unit);render()});
-    document.querySelector('main').addEventListener('submit',event=>{const form=event.target.closest('[data-hp-form]');if(!form)return;event.preventDefault();const unit=findUnit(form.dataset.hpForm);if(!unit)return;const data=new FormData(form);const hp=Number(data.get('currentHp'));const maxHp=Number(data.get('maxHp'));if(!Number.isInteger(hp)||!Number.isInteger(maxHp)||maxHp<1||hp<0){alert('\u8acb\u8f38\u5165\u6709\u6548\u7684\u76ee\u524d HP \u8207\u6700\u5927 HP\u3002');return}saveHistory();unit.maxHp=maxHp;unit.hp=Math.min(hp,maxHp);checkHpThresholds(unit);if(unit.type==='monster'&&unit.hp<=0){monsters=monsters.filter(x=>x.id!==unit.id)}render()});
-    document.querySelector('main').addEventListener('submit',event=>{const form=event.target.closest('[data-passive-form]');if(!form)return;event.preventDefault();const unit=findUnit(form.dataset.passiveForm);if(!unit)return;const data=new FormData(form);const name=String(data.get('passiveName')).trim().slice(0,50);const color=String(data.get('passiveColor')||'#8a5cd6');if(!name)return;saveHistory();(unit.passives||(unit.passives=[])).push({id:crypto.randomUUID(),name,color});const old=passiveTemplates.find(item=>item.name===name);if(old){old.color=color}else{pushWithLimit(passiveTemplates,{id:crypto.randomUUID(),name,color},MAX_TEMPLATES)}saveMemory('battleTrackerPassiveTemplates',passiveTemplates);render()});
-    document.querySelector('main').addEventListener('submit',event=>{const form=event.target.closest('[data-add-bar-form]');if(!form)return;event.preventDefault();const unit=findUnit(form.dataset.addBarForm);if(!unit)return;const data=new FormData(form);const name=String(data.get('barName')).trim();const maxValue=Number(data.get('barMax'));const color=String(data.get('barColor')||'#7c8db5');if(!name||!Number.isInteger(maxValue)||maxValue<1)return;saveHistory();const newBar={id:crypto.randomUUID(),name,value:maxValue,maxValue,color};(unit.bars||(unit.bars=[])).push(newBar);const old=barTemplates.find(item=>item.name===name);if(old){old.maxValue=maxValue;old.color=color}else{pushWithLimit(barTemplates,{id:crypto.randomUUID(),name,maxValue,color},MAX_TEMPLATES)}saveMemory('battleTrackerBarTemplates',barTemplates);render();const newBarEl=document.querySelector(`.custom-bar[data-bar-id="${newBar.id}"]`);if(newBarEl){newBarEl.scrollIntoView({behavior:'smooth',block:'center'});newBarEl.classList.add('just-added')}});
-    document.querySelector('#addForm').addEventListener('submit',event=>{
-      event.preventDefault();
-      const formType=document.querySelector('#unitType').value;
-      const isBoss=formType==='boss';
-      const type=isBoss?'monster':formType;
-      const name=document.querySelector('#unitName');
-      const max=Number(document.querySelector('#unitMaxHp').value);
-      const color=document.querySelector('#unitColor').value;
-      const asSquad=type==='monster'&&!isBoss&&document.querySelector('#unitAsSquad').checked;
-      saveHistory();
-      if(asSquad){
-        const count=Math.max(2,Math.min(12,Math.floor(Number(document.querySelector('#unitSquadCount').value))||3));
-        const baseName=name.value.trim();
-        const squad={id:crypto.randomUUID(),name:baseName,color,maxHp:max,passives:[],attributes:[],bars:[]};
-        squads.push(squad);
-        for(let i=1;i<=count;i++){
-          monsters.push({id:crypto.randomUUID(),name:`${baseName} ${i}`,hp:max,maxHp:max,type:'monster',color,squadId:squad.id,statuses:[],attributes:[],bars:[],passives:[]});
-        }
-        const old=monsterTemplates.find(item=>item.name===baseName);
-        const template={id:old?.id||crypto.randomUUID(),name:baseName,maxHp:max,color,statuses:[],isSquad:true,squadCount:count,passives:[],attributes:[],bars:[],isBoss:false};
-        if(old)Object.assign(old,template);else pushWithLimit(monsterTemplates,template,MAX_TEMPLATES);
-        saveMemory('battleTrackerMonsterTemplates',monsterTemplates);
-      }else{
-        const unit={id:crypto.randomUUID(),name:name.value.trim(),hp:max,maxHp:max,type,color,statuses:[],attributes:[],bars:[],passives:[],turnEnded:false};
-        if(type==='monster')unit.isBoss=isBoss;
-        if(isBoss){
-          const cardCount=Math.max(1,Math.min(10,Math.floor(Number(document.querySelector('#unitBossCardCount').value))||1));
-          unit.actionCards=Array.from({length:cardCount},()=>({id:crypto.randomUUID(),name:'',turnEnded:false}));
-        }
-        if(type==='player')players.push(unit);
-        else{
-          monsters.push(unit);
-          const old=monsterTemplates.find(item=>item.name===unit.name);
-          const template={id:old?.id||crypto.randomUUID(),name:unit.name,maxHp:unit.maxHp,color:unit.color,statuses:[],isSquad:false,squadCount:old?.squadCount||3,passives:[],attributes:[],bars:[],isBoss,cardCount:isBoss?unit.actionCards.length:(old?.cardCount||1),cardNames:isBoss?unit.actionCards.map(c=>c.name||''):(old?.cardNames||[]),hpThresholds:old?.hpThresholds||[]};
+    document.querySelector('main').addEventListener('submit',event=>{
+      const form=event.target;
+      if(form.id==='saveForm'){event.preventDefault();const input=document.querySelector('#saveName');const name=input.value.trim();if(!name)return;const old=saveFiles.find(file=>file.name===name);if(!old&&saveFiles.length>=MAX_SAVE_FILES){alert(`\u5b58\u6a94\u6578\u91cf\u5df2\u9054\u4e0a\u9650\uff08${MAX_SAVE_FILES} \u7b46\uff09\uff0c\u8acb\u5148\u522a\u9664\u4e00\u4e9b\u820a\u5b58\u6a94\u518d\u65b0\u589e\u3002`);return}const file={id:old?.id||crypto.randomUUID(),name,state:currentSaveState()};if(old)Object.assign(old,file);else saveFiles.push(file);saveMemory('battleTrackerSaveFiles',saveFiles);input.value='';render();return}
+      if(form.id==='tagForm'){event.preventDefault();const input=document.querySelector('#tagName');const name=input.value.trim();if(!name)return;saveHistory();actionTags.push({id:crypto.randomUUID(),name,active:true});input.value='';render();return}
+      if(form.dataset.statusForm){event.preventDefault();const unit=findUnit(form.dataset.statusForm);if(!unit)return;const data=new FormData(form);const name=String(data.get('statusName')).trim();const turns=Number(data.get('statusTurns'));if(!name||!Number.isInteger(turns)||turns<1)return;saveHistory();const kind=data.get('statusKind');unit.statuses.push({id:crypto.randomUUID(),name,kind,turns});const old=statusTemplates.find(item=>item.name===name&&item.kind===kind);if(old){old.turns=turns}else{pushWithLimit(statusTemplates,{id:crypto.randomUUID(),name,kind,turns},MAX_TEMPLATES)}saveMemory('battleTrackerStatusTemplates',statusTemplates);render();return}
+      if(form.dataset.attributeForm){event.preventDefault();const unit=findUnit(form.dataset.attributeForm);if(!unit)return;const data=new FormData(form);const name=String(data.get('attributeName')).trim();const color=String(data.get('attributeColor')||'#4c78a4');if(!name)return;saveHistory();(unit.attributes||(unit.attributes=[])).push({id:crypto.randomUUID(),name,value:'',color});const oldTemplate=attributeTemplates.find(item=>item.name===name);if(oldTemplate){oldTemplate.color=color}else{pushWithLimit(attributeTemplates,{id:crypto.randomUUID(),name,color},MAX_TEMPLATES)}saveMemory('battleTrackerAttributeTemplates',attributeTemplates);render();return}
+      if(form.dataset.bossThresholdForm){event.preventDefault();const unit=findUnit(form.dataset.bossThresholdForm);if(!unit||!unit.isBoss)return;const data=new FormData(form);const value=Math.floor(Number(data.get('thresholdValue')));const passiveName=String(data.get('thresholdPassive')||'').trim().slice(0,30);const autoRemove=data.get('thresholdAutoRemove')==='on';if(!Number.isFinite(value)||value<1||value>999999){alert('\u8acb\u8f38\u5165\u6709\u6548\u7684\u8840\u91cf\u6578\u503c\u3002');return}saveHistory();if(!Array.isArray(unit.hpThresholds))unit.hpThresholds=[];if(!unit.hpThresholds.some(t=>t.value===value))unit.hpThresholds.push({id:crypto.randomUUID(),value,passiveName,triggered:false,autoRemove});unit.hpThresholds=unit.hpThresholds.sort((a,b)=>b.value-a.value).slice(0,5);checkHpThresholds(unit);render();return}
+      if(form.dataset.hpForm){event.preventDefault();const unit=findUnit(form.dataset.hpForm);if(!unit)return;const data=new FormData(form);const hp=Number(data.get('currentHp'));const maxHp=Number(data.get('maxHp'));if(!Number.isInteger(hp)||!Number.isInteger(maxHp)||maxHp<1||hp<0){alert('\u8acb\u8f38\u5165\u6709\u6548\u7684\u76ee\u524d HP \u8207\u6700\u5927 HP\u3002');return}saveHistory();unit.maxHp=maxHp;unit.hp=Math.min(hp,maxHp);checkHpThresholds(unit);if(unit.type==='monster'&&unit.hp<=0){monsters=monsters.filter(x=>x.id!==unit.id)}render();return}
+      if(form.dataset.passiveForm){event.preventDefault();const unit=findUnit(form.dataset.passiveForm);if(!unit)return;const data=new FormData(form);const name=String(data.get('passiveName')).trim().slice(0,50);const color=String(data.get('passiveColor')||'#8a5cd6');if(!name)return;saveHistory();(unit.passives||(unit.passives=[])).push({id:crypto.randomUUID(),name,color});const old=passiveTemplates.find(item=>item.name===name);if(old){old.color=color}else{pushWithLimit(passiveTemplates,{id:crypto.randomUUID(),name,color},MAX_TEMPLATES)}saveMemory('battleTrackerPassiveTemplates',passiveTemplates);render();return}
+      if(form.dataset.addBarForm){event.preventDefault();const unit=findUnit(form.dataset.addBarForm);if(!unit)return;const data=new FormData(form);const name=String(data.get('barName')).trim();const maxValue=Number(data.get('barMax'));const color=String(data.get('barColor')||'#7c8db5');if(!name||!Number.isInteger(maxValue)||maxValue<1)return;saveHistory();const newBar={id:crypto.randomUUID(),name,value:maxValue,maxValue,color};(unit.bars||(unit.bars=[])).push(newBar);const old=barTemplates.find(item=>item.name===name);if(old){old.maxValue=maxValue;old.color=color}else{pushWithLimit(barTemplates,{id:crypto.randomUUID(),name,maxValue,color},MAX_TEMPLATES)}saveMemory('battleTrackerBarTemplates',barTemplates);render();const newBarEl=document.querySelector(`.custom-bar[data-bar-id="${newBar.id}"]`);if(newBarEl){newBarEl.scrollIntoView({behavior:'smooth',block:'center'});newBarEl.classList.add('just-added')}return}
+      if(form.id==='addForm'){
+        event.preventDefault();
+        const formType=document.querySelector('#unitType').value;
+        const isBoss=formType==='boss';
+        const type=isBoss?'monster':formType;
+        const name=document.querySelector('#unitName');
+        const max=Number(document.querySelector('#unitMaxHp').value);
+        const color=document.querySelector('#unitColor').value;
+        const asSquad=type==='monster'&&!isBoss&&document.querySelector('#unitAsSquad').checked;
+        saveHistory();
+        if(asSquad){
+          const count=Math.max(2,Math.min(12,Math.floor(Number(document.querySelector('#unitSquadCount').value))||3));
+          const baseName=name.value.trim();
+          const squad={id:crypto.randomUUID(),name:baseName,color,maxHp:max,passives:[],attributes:[],bars:[]};
+          squads.push(squad);
+          for(let i=1;i<=count;i++){
+            monsters.push({id:crypto.randomUUID(),name:`${baseName} ${i}`,hp:max,maxHp:max,type:'monster',color,squadId:squad.id,statuses:[],attributes:[],bars:[],passives:[]});
+          }
+          const old=monsterTemplates.find(item=>item.name===baseName);
+          const template={id:old?.id||crypto.randomUUID(),name:baseName,maxHp:max,color,statuses:[],isSquad:true,squadCount:count,passives:[],attributes:[],bars:[],isBoss:false};
           if(old)Object.assign(old,template);else pushWithLimit(monsterTemplates,template,MAX_TEMPLATES);
           saveMemory('battleTrackerMonsterTemplates',monsterTemplates);
+        }else{
+          const unit={id:crypto.randomUUID(),name:name.value.trim(),hp:max,maxHp:max,type,color,statuses:[],attributes:[],bars:[],passives:[],turnEnded:false};
+          if(type==='monster')unit.isBoss=isBoss;
+          if(isBoss){
+            const cardCount=Math.max(1,Math.min(10,Math.floor(Number(document.querySelector('#unitBossCardCount').value))||1));
+            unit.actionCards=Array.from({length:cardCount},()=>({id:crypto.randomUUID(),name:'',turnEnded:false}));
+          }
+          if(type==='player')players.push(unit);
+          else{
+            monsters.push(unit);
+            const old=monsterTemplates.find(item=>item.name===unit.name);
+            const template={id:old?.id||crypto.randomUUID(),name:unit.name,maxHp:unit.maxHp,color:unit.color,statuses:[],isSquad:false,squadCount:old?.squadCount||3,passives:[],attributes:[],bars:[],isBoss,cardCount:isBoss?unit.actionCards.length:(old?.cardCount||1),cardNames:isBoss?unit.actionCards.map(c=>c.name||''):(old?.cardNames||[]),hpThresholds:old?.hpThresholds||[]};
+            if(old)Object.assign(old,template);else pushWithLimit(monsterTemplates,template,MAX_TEMPLATES);
+            saveMemory('battleTrackerMonsterTemplates',monsterTemplates);
+          }
         }
+        name.value='';
+        document.querySelector('#unitMaxHp').value=100;
+        document.querySelector('#unitAsSquad').checked=false;
+        document.querySelector('#unitBossCardCount').value=1;
+        updateSquadOptionVisibility();
+        render();
+        return;
       }
-      name.value='';
-      document.querySelector('#unitMaxHp').value=100;
-      document.querySelector('#unitAsSquad').checked=false;
-      document.querySelector('#unitBossCardCount').value=1;
-      updateSquadOptionVisibility();
-      render();
     });
+
     function updateSquadOptionVisibility(){
       const type=document.querySelector('#unitType').value;
       const squadOption=document.querySelector('#squadOption');
