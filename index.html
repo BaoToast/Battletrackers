@@ -39,7 +39,8 @@
     <p class="subtitle">&#21487;&#33258;&#30001;&#26032;&#22686;&#12289;&#32232;&#36655;&#33287;&#21034;&#38500;&#29609;&#23478;&#25110;&#24618;&#29289;</p>
     <div id="combatSharedPanel">
     <div class="toolbar"><button id="undo" disabled>&#8592; &#36820;&#22238;&#19978;&#19968;&#27493;</button><button id="redo" disabled>&#36820;&#22238;&#19979;&#19968;&#27493; &#8594;</button></div>
-    <section class="action-panel">
+    <div id="actionPanelAnchorInitiative"></div>
+    <section class="action-panel" id="actionPanelBlock">
       <div class="tag-list" id="actionTags"></div>
       <form class="tag-form" id="tagForm"><input id="tagName" maxlength="20" required placeholder="&#26032;&#34892;&#21205;&#27161;&#31844; "><button class="primary">&#26032;&#22686;&#27161;&#31844;</button><button type="button" id="resetTags">&#37325;&#32622;&#34892;&#21205;&#27161;&#31844;</button><button type="button" id="resetPlayerTurns">&#37325;&#32622;&#29609;&#23478;&#22238;&#21512;</button></form>
     </section>
@@ -50,8 +51,9 @@
     </div>
     <div class="tab-panel" id="tabPanelPlayer" data-tab-panel="player">
     <div class="section-head" id="tabSectionPlayer"><h2 class="section-title">&#128737;&#65039; &#29609;&#23478;&#36039;&#35338;</h2><div class="section-head-actions"><button type="button" class="danger" id="resetPlayerHpStatus">&#8635; &#37325;&#32622;&#34880;&#37327;&#33287;&#29376;&#24907;</button><button type="button" id="togglePlayers">&#25910;&#21512;&#29609;&#23478;&#36039;&#35338;</button></div></div>
-    <div id="playerContent">
     <div class="filter-bar" id="playerFilterBar"></div>
+    <div id="actionPanelAnchorPlayer"></div>
+    <div id="playerContent">
     <div class="summary-head"><span class="summary-head-title">&#29609;&#23478;&#29376;&#24907;&#25688;&#35201;</span><button type="button" id="togglePlayerSummary">&#25910;&#21512;&#25688;&#35201;</button></div>
     <div id="playerSummary"></div>
     <section class="grid" id="playerCards"></section>
@@ -59,7 +61,7 @@
     </div>
     <div class="tab-panel" id="tabPanelMonster" data-tab-panel="monster">
     <div class="section-head" id="tabSectionMonster"><h2 class="section-title">&#128126; &#24618;&#29289;&#36039;&#35338;</h2><div class="section-head-actions"><button type="button" id="resetMonsterTurns">&#37325;&#32622;&#24618;&#29289;&#22238;&#21512;</button><button type="button" class="danger" id="clearAllMonsters">&#128465;&#65039; &#28165;&#31354;&#25152;&#26377;&#24618;&#29289;</button><button type="button" id="toggleMonsters">&#25910;&#21512;&#24618;&#29289;&#36039;&#35338;</button></div></div>
-    <div id="monsterContent"><div class="filter-bar" id="monsterFilterBar"></div><div class="summary-head"><span class="summary-head-title">&#24618;&#29289;&#29376;&#24907;&#25688;&#35201;</span><button type="button" id="toggleMonsterSummary">&#25910;&#21512;&#25688;&#35201;</button></div><div id="monsterSummary"></div><section class="grid" id="monsterCards"></section></div>
+    <div class="filter-bar" id="monsterFilterBar"></div><div id="actionPanelAnchorMonster"></div><div id="monsterContent"><div class="summary-head"><span class="summary-head-title">&#24618;&#29289;&#29376;&#24907;&#25688;&#35201;</span><button type="button" id="toggleMonsterSummary">&#25910;&#21512;&#25688;&#35201;</button></div><div id="monsterSummary"></div><section class="grid" id="monsterCards"></section></div>
     </div>
     <div class="tab-panel" id="tabPanelSystem" data-tab-panel="system">
     <div class="section-head" id="tabSectionSystem"><h2 class="section-title">&#9881;&#65039; &#31995;&#32113;</h2></div>
@@ -784,6 +786,14 @@
     }
     const TAB_PANELS={initiative:'#tabPanelInitiative',player:'#tabPanelPlayer',monster:'#tabPanelMonster',system:'#tabPanelSystem'};
     const TAB_SECTION_TO_TAB={tabSectionInitiative:'initiative',tabSectionPlayer:'player',tabSectionMonster:'monster',tabSectionSystem:'system'};
+    const ACTION_PANEL_ANCHORS={initiative:'#actionPanelAnchorInitiative',player:'#actionPanelAnchorPlayer',monster:'#actionPanelAnchorMonster'};
+    function positionActionPanel(tab){
+      const anchorSelector=ACTION_PANEL_ANCHORS[tab];
+      if(!anchorSelector)return;
+      const anchor=document.querySelector(anchorSelector);
+      const block=document.querySelector('#actionPanelBlock');
+      if(anchor&&block&&anchor.nextElementSibling!==block)anchor.after(block);
+    }
     function setActiveTab(tab,{scroll=true}={}){
       if(!VALID_TABS.includes(tab))return;
       activeTab=tab;
@@ -791,6 +801,7 @@
         const panel=document.querySelector(TAB_PANELS[key]);
         if(panel)panel.hidden=key!==tab;
       });
+      positionActionPanel(tab);
       const combatShared=document.querySelector('#combatSharedPanel');
       if(combatShared)combatShared.hidden=tab==='system';
       const tabbar=document.querySelector('#bottomTabbar');
