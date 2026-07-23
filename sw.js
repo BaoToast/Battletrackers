@@ -45,11 +45,40 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Absolute URLs of the app-shell entries, so we can tell "is this request the
+// shell?" even though the request URL is absolute but APP_SHELL is relative.
+const APP_SHELL_URLS = new Set(APP_SHELL.map(url => new URL(url, self.registration.scope).href));
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  const isNavigation = event.request.mode === 'navigate';
+  const isAppShell = isNavigation || APP_SHELL_URLS.has(event.request.url);
+
   event.respondWith(
     (async () => {
       const cached = await caches.match(event.request);
+
+      // Any other (currently: non-existent, but future-proofed) static asset:
+      // pure cache-first. If it's already cached, serve it immediately with no
+      // network round-trip at all. Only hit the network on a genuine cache miss,
+      // and cache the result for next time.
+      if (!isAppShell) {
+        if (cached) return cached;
+        try {
+          const networkResponse = await fetch(event.request);
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        } catch {
+          return cached;
+        }
+      }
+
+      // App-shell / navigation: keep the existing stale-while-revalidate
+      // behaviour, since we deliberately want a background network hit every
+      // time so version updates get detected promptly.
       const networkFetch = (async () => {
         try {
           // Reuse the preloaded navigation response when available so we don't
