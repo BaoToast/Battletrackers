@@ -546,6 +546,12 @@
       if(resizeNameTimer)clearTimeout(resizeNameTimer);
       resizeNameTimer=setTimeout(()=>{resizeNameTimer=null;sizeUnitNameInputs(true);updateTabbarHeightVar()},200);
     });
+    window.addEventListener('orientationchange',()=>{
+      // \u5e73\u677f/\u624b\u6a5f\u65cb\u8f49\u65b9\u5411\u6642\uff0c\u6709\u4e9b\u700f\u89bd\u5668\u6703\u5148\u767c\u51fa\u9019\u500b\u4e8b\u4ef6\uff0c\u7b49\u5230\u5be6\u969b\u8996\u5340\u5c3a\u5bf8\u7a69\u5b9a\u5f8c\u624d\u771f\u6b63\u66f4\u65b0\uff0c
+      // \u6240\u4ee5\u9019\u88e1\u591a\u7b49\u4e00\u9ede\u5f8c\u518d\u91cd\u65b0\u91cf\u6e2c\u4e00\u6b21\u5206\u9801\u5217\u9ad8\u5ea6\uff0c\u78ba\u4fdd\u61f8\u6d6e\u6309\u9215\u4f4d\u7f6e\u6b63\u78ba\u3002
+      setTimeout(updateTabbarHeightVar,50);
+      setTimeout(updateTabbarHeightVar,350);
+    });
     function exportData(){
       flushAutosave();
       const data={};
@@ -1371,7 +1377,11 @@
         saveHistory();
         names.forEach(name=>{
           monsters.push({id:crypto.randomUUID(),name,hp:maxHp,maxHp,type:'monster',color,statuses:[],attributes:[],bars:[],passives:[]});
+          const old=monsterTemplates.find(item=>item.name===name);
+          const template={id:old?.id||crypto.randomUUID(),name,maxHp,color,statuses:[],isSquad:false,squadCount:old?.squadCount||3,passives:[],attributes:[],bars:[],isBoss:false,cardCount:old?.cardCount||1,cardNames:old?.cardNames||[],hpThresholds:old?.hpThresholds||[]};
+          if(old)Object.assign(old,template);else pushWithLimit(monsterTemplates,template,MAX_TEMPLATES);
         });
+        saveMemory('battleTrackerMonsterTemplates',monsterTemplates);
         render();
         const resultEl=document.querySelector(`[data-draw-result="${tierId}"]`);
         if(resultEl)resultEl.innerHTML=`&#9989; \u5df2\u751f\u6210 ${names.length} \u96bb\u6015\u7269\uff1a${names.map(n=>escapeHtml(n)).join('\u3001')}`;
