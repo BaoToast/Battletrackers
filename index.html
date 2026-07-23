@@ -122,7 +122,7 @@
     // 瀏覽器會把它視為「不同的 sw.js 網址」而強制重新抓取、重新安裝，
     // 才能保證每次更新 index.html 後，使用者的裝置真的會抓到新版本
     // （否則瀏覽器只會比對 sw.js 本身的內容有沒有變，這裡沒變就永遠判斷「已是最新」）。
-    const APP_VERSION='2026.07.23-7';
+    const APP_VERSION='2026.07.23-8';
     // uuid() 只在安全情境（https/localhost）且較新瀏覽器才存在；
     // 沒有的話（例如較舊的 iOS Safari、部分內嵌 WebView、或以 file:// 開啟）就退回手刻版本，
     // 避免頁面一載入就因為 ReferenceError 直接白屏。
@@ -270,7 +270,7 @@
     let updateCheckResolver=null;
     if('serviceWorker' in navigator){
       window.addEventListener('load',()=>{
-        navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(APP_VERSION)}`)
+        navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(APP_VERSION)}`,{updateViaCache:'none'})
           .then(reg=>{swRegistration=reg})
           .catch(err=>console.error('Service Worker \u8a3b\u518a\u5931\u6557',err));
       });
@@ -308,7 +308,7 @@
       const found=await new Promise(resolve=>{
         updateCheckResolver=resolve;
         swRegistration.update().catch(()=>{});
-        setTimeout(()=>{if(updateCheckResolver){updateCheckResolver=null;resolve(false)}},5000);
+        setTimeout(()=>{if(updateCheckResolver){updateCheckResolver=null;resolve(false)}},10000);
       });
       if(found){
         btn.textContent='\u2705 \u767c\u73fe\u65b0\u7248\u672c\uff0c\u6b63\u5728\u91cd\u65b0\u6574\u7406\u2026';
