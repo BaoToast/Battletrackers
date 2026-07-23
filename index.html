@@ -63,6 +63,7 @@
     </div>
     <div class="tab-panel" id="tabPanelSystem" data-tab-panel="system">
     <div class="section-head" id="tabSectionSystem"><h2 class="section-title">&#9881;&#65039; &#31995;&#32113;</h2></div>
+    <div class="theme-switch"><button type="button" id="btnCheckUpdate">&#128260; 檢查並更新版本</button></div>
     <section class="save-panel"><form class="save-form" id="saveForm"><input id="saveName" maxlength="30" required placeholder="&#23384;&#27284;&#21517;&#31281;"><button class="primary">&#20786;&#23384;&#30070;&#21069;&#29376;&#24907;</button></form><div class="save-list" id="saveList"></div></section>
     <div class="toolbar"><button type="button" id="btnExportData">&#128190; 匯出備份</button><button type="button" id="btnImportData">&#128194; 匯入備份</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
     <div class="theme-switch" id="themeSwitch">
@@ -156,15 +157,18 @@
     });
     updateWakeLockButton();
     if(keepScreenAwakePref)requestWakeLock();
+    let swRegistration=null;
+    let updateCheckResolver=null;
     if('serviceWorker' in navigator){
-      let swRegistration=null;
       window.addEventListener('load',()=>{
         navigator.serviceWorker.register('./sw.js')
           .then(reg=>{swRegistration=reg})
           .catch(err=>console.error('Service Worker \u8a3b\u518a\u5931\u6557',err));
       });
       navigator.serviceWorker.addEventListener('message',event=>{
-        if(event.data&&event.data.type==='SW_UPDATED')showUpdateBanner();
+        if(!(event.data&&event.data.type==='SW_UPDATED'))return;
+        if(updateCheckResolver){const resolve=updateCheckResolver;updateCheckResolver=null;resolve(true)}
+        else showUpdateBanner();
       });
       // \u4e3b\u52d5\u6aa2\u67e5\u65b0\u7248\u672c\uff1a\u700f\u89bd\u5668\u9810\u8a2d\u53ea\u6703\u5728\u80cc\u666f\u4f4e\u983b\u7387\u5730\u6aa2\u67e5 sw.js \u662f\u5426\u66f4\u65b0\uff08\u6709\u6642\u9694\u591a\u5c0f\u6642\u4e0d\u7b49\uff09\uff0c
       // \u9019\u88e1\u5728\u4f7f\u7528\u8005\u56de\u5230\u524d\u53f0\u6642\u3001\u4ee5\u53ca\u9577\u6642\u9593\u958b\u8457\u6642\u5b9a\u671f\u4e3b\u52d5\u547c\u53eb registration.update()\uff0c
@@ -180,9 +184,32 @@
       bar.id='swUpdateBanner';
       bar.style.cssText='position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);z-index:999;background:var(--primary);color:var(--primary-text);padding:10px 16px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.3);font-size:.9rem;display:flex;align-items:center;gap:10px;cursor:pointer';
       bar.innerHTML='&#128260; &#26377;&#26032;&#29256;&#26412;&#21487;&#29992;&#65292;&#40670;&#25802;&#37325;&#26032;&#25972;&#29702; <button type="button" style="background:rgba(255,255,255,.25);color:inherit;border:none;padding:4px 10px;border-radius:999px">&#37325;&#26032;&#25972;&#29702;</button>';
-      bar.addEventListener('click',()=>location.reload());
+      bar.addEventListener('click',()=>{flushAutosave();location.reload()});
       document.body.appendChild(bar);
     }
+    document.querySelector('#btnCheckUpdate').addEventListener('click',async()=>{
+      const btn=document.querySelector('#btnCheckUpdate');
+      if(!('serviceWorker' in navigator)){alert('\u6b64\u700f\u89bd\u5668\u4e0d\u652f\u63f4\u81ea\u52d5\u66f4\u65b0\u529f\u80fd\u3002');return}
+      btn.disabled=true;
+      const original=btn.textContent;
+      btn.textContent='\ud83d\udd04 \u6aa2\u67e5\u4e2d\u2026';
+      if(!swRegistration)swRegistration=await navigator.serviceWorker.getRegistration();
+      if(!swRegistration){alert('\u5c1a\u672a\u8a3b\u518a\u80cc\u666f\u670d\u52d9\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u4e00\u6b21\u3002');btn.disabled=false;btn.textContent=original;return}
+      const found=await new Promise(resolve=>{
+        updateCheckResolver=resolve;
+        swRegistration.update().catch(()=>{});
+        setTimeout(()=>{if(updateCheckResolver){updateCheckResolver=null;resolve(false)}},5000);
+      });
+      if(found){
+        btn.textContent='\u2705 \u767c\u73fe\u65b0\u7248\u672c\uff0c\u6b63\u5728\u91cd\u65b0\u6574\u7406\u2026';
+        flushAutosave();
+        location.reload();
+        return;
+      }
+      btn.textContent='\u2705 \u5df2\u662f\u6700\u65b0\u7248\u672c';
+      btn.disabled=false;
+      setTimeout(()=>{btn.textContent=original},2500);
+    });
     const saveMemory=(key,value)=>setStorageItem(key,JSON.stringify(value));
     const loadCurrentState=()=>{try{const raw=localStorage.getItem('battleTrackerCurrentState');return raw?JSON.parse(raw):null}catch{return null}};
     const savedCurrentState=loadCurrentState();
