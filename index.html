@@ -122,7 +122,7 @@
     // 瀏覽器會把它視為「不同的 sw.js 網址」而強制重新抓取、重新安裝，
     // 才能保證每次更新 index.html 後，使用者的裝置真的會抓到新版本
     // （否則瀏覽器只會比對 sw.js 本身的內容有沒有變，這裡沒變就永遠判斷「已是最新」）。
-    const APP_VERSION='2026.07.23-4';
+    const APP_VERSION='2026.07.23-5';
     // uuid() 只在安全情境（https/localhost）且較新瀏覽器才存在；
     // 沒有的話（例如較舊的 iOS Safari、部分內嵌 WebView、或以 file:// 開啟）就退回手刻版本，
     // 避免頁面一載入就因為 ReferenceError 直接白屏。
@@ -380,7 +380,7 @@
       {key:'battleTrackerPassiveTemplates',label:'\u88ab\u52d5\u80fd\u529b\u7bc4\u672c',count:()=>passiveTemplates.length,unit:'\u7b46',clear:()=>{saveHistory();passiveTemplates=[];saveMemory('battleTrackerPassiveTemplates',passiveTemplates)}},
       {key:'battleTrackerAttributeTemplates',label:'\u5c6c\u6027\u7bc4\u672c',count:()=>attributeTemplates.length,unit:'\u7b46',clear:()=>{saveHistory();attributeTemplates=[];saveMemory('battleTrackerAttributeTemplates',attributeTemplates)}},
       {key:'battleTrackerBarTemplates',label:'\u6578\u503c\u689d\u7bc4\u672c',count:()=>barTemplates.length,unit:'\u7b46',clear:()=>{saveHistory();barTemplates=[];saveMemory('battleTrackerBarTemplates',barTemplates)}},
-      {key:'battleTrackerCardTiers',label:'\u5148\u653b\u5361\u7b49\u7d1a\u8207\u62bd\u53d6\u7d00\u9304',count:()=>cardTiers.length,unit:'\u500b\u7b49\u7d1a',clear:()=>{saveHistory();cardTiers=[];saveMemory('battleTrackerCardTiers',cardTiers)}},
+      {key:'battleTrackerCardTiers',label:'\u5361\u724c\u96a8\u6a5f\u62bd\u53d6',count:()=>cardTiers.length,unit:'\u500b\u7b49\u7d1a',clear:()=>{saveHistory();cardTiers=[];saveMemory('battleTrackerCardTiers',cardTiers)}},
       {key:'battleTrackerCombatLog',label:'\u6230\u9b25\u7d00\u9304',count:()=>combatLog.length,unit:'\u689d',clear:()=>{combatLog=[];saveMemory('battleTrackerCombatLog',combatLog)}},
       {key:'battleTrackerPalette',label:'\u5e38\u7528\u8272\u76e4',count:()=>paletteColors.length,unit:'\u7a2e\u984f\u8272'},
       {key:'battleTrackerTheme',label:'\u4f48\u666f\u4e3b\u984c\u8a2d\u5b9a',count:()=>1,unit:''},
