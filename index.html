@@ -878,11 +878,17 @@ const COMBAT_LOG_DISPLAY_LIMIT=50;
         const sanitized=sanitizeImportedData(rawData);
         if(!sanitized||!Object.keys(sanitized).length){alert('\u532f\u5165\u5931\u6557\uff1a\u6a94\u6848\u5167\u6c92\u6709\u53ef\u8fa8\u8b58\u7684\u5099\u4efd\u8cc7\u6599\u3002');return}
         if(!confirm('\u532f\u5165\u5c07\u8986\u84cb\u6b64\u88dd\u7f6e\u4e0a\u76ee\u524d\u7684\u6240\u6709\u8cc7\u6599\uff08\u73a9\u5bb6/\u602a\u7269\u3001\u5b58\u6a94\u3001\u7bc4\u672c\u3001\u5e38\u7528\u8272\u76e4\u7b49\uff09\uff0c\u4e14\u7121\u6cd5\u5fa9\u539f\u3002\u78ba\u5b9a\u8981\u7e7c\u7e8c\u55ce\uff1f'))return;
+        let allOk=true;
         STORAGE_KEYS.forEach(key=>{
           if(!(key in sanitized))return;
           const value=sanitized[key];
-          localStorage.setItem(key,typeof value==='string'?value:JSON.stringify(value));
+          const raw=typeof value==='string'?value:JSON.stringify(value);
+          if(!setStorageItem(key,raw))allOk=false;
         });
+        if(!allOk){
+          alert('\u532f\u5165\u904e\u7a0b\u4e2d\u6709\u90e8\u5206\u8cc7\u6599\u5beb\u5165\u5931\u6557\uff08\u53ef\u80fd\u662f\u700f\u89bd\u5668\u5132\u5b58\u7a7a\u9593\u4e0d\u8db3\uff09\uff0c\u76ee\u524d\u88dd\u7f6e\u4e0a\u7684\u8cc7\u6599\u53ef\u80fd\u53ea\u6709\u90e8\u5206\u88ab\u66f4\u65b0\u3002\u5efa\u8b70\u5148\u6e05\u7406\u4e00\u4e9b\u820a\u5b58\u6a94\u6216\u7bc4\u672c\u5f8c\u518d\u91cd\u8a66\u4e00\u6b21\u532f\u5165\u3002');
+          return;
+        }
         alert('\u532f\u5165\u6210\u529f\uff0c\u9801\u9762\u5373\u5c07\u91cd\u65b0\u6574\u7406\u3002');
         location.reload();
       };
@@ -1198,15 +1204,14 @@ const COMBAT_LOG_DISPLAY_LIMIT=50;
 function adjustUnitHp(unit,action,amount){
       if(!(amount>0))return false;
       if(action!=='damage'&&action!=='heal')return false;
-      saveHistory();
       const oldHp=unit.hp;
-      if(action==='damage')unit.hp=Math.max(0,unit.hp-amount);
-      else unit.hp=Math.min(unit.maxHp,unit.hp+amount);
+      const newHp=action==='damage'?Math.max(0,unit.hp-amount):Math.min(unit.maxHp,unit.hp+amount);
+      if(newHp===oldHp)return false;
+      saveHistory();
+      unit.hp=newHp;
       checkHpThresholds(unit);
-      if(unit.hp!==oldHp){
-        const delta=unit.hp-oldHp;
-        logCombatEvent(unit,`${action==='damage'?'受到傷害':'恢復血量'} ${oldHp} → ${unit.hp}（${delta>=0?'+':''}${delta}）`,'hp');
-      }
+      const delta=unit.hp-oldHp;
+      logCombatEvent(unit,`${action==='damage'?'受到傷害':'恢復血量'} ${oldHp} → ${unit.hp}（${delta>=0?'+':''}${delta}）`,'hp');
       return true;
     }
     document.querySelector('main').addEventListener('click',event=>{
@@ -1277,9 +1282,11 @@ function adjustUnitHp(unit,action,amount){
         const amount=Math.floor(Number(amountInput?.value));
         if(!filterSet.size||!Number.isFinite(amount)||amount<=0)return;
         const action=batchAction.dataset.batchAction;
-saveHistory();
-        list.forEach(unit=>{
-          if(!filterSet.has(unit.id))return;
+        const targets=list.filter(unit=>filterSet.has(unit.id));
+        const willChange=targets.some(unit=>action==='damage'?unit.hp>0:unit.hp<unit.maxHp);
+        if(!willChange)return;
+        saveHistory();
+        targets.forEach(unit=>{
           const oldHp=unit.hp;
           if(action==='damage')unit.hp=Math.max(0,unit.hp-amount);
           else if(action==='heal')unit.hp=Math.min(unit.maxHp,unit.hp+amount);
@@ -1467,7 +1474,7 @@ saveHistory();
       const barTemplateDelete=event.target.closest('[data-bar-template-delete]');
       if(barTemplateDelete){saveHistory();barTemplates=barTemplates.filter(item=>item.id!==barTemplateDelete.dataset.barTemplateDelete);saveMemory('battleTrackerBarTemplates',barTemplates);render();return}
       const barAdjust=event.target.closest('[data-bar-adjust]');
-      if(barAdjust){const unit=findUnit(barAdjust.dataset.barAdjust);const bar=unit?.bars?.find(item=>item.id===barAdjust.dataset.barId);const amount=Math.floor(Number(barAdjust.closest('.custom-bar')?.querySelector('[data-bar-amount]')?.value));if(bar&&amount>0){saveHistory();const oldValue=bar.value;if(barAdjust.dataset.barAction==='increase')bar.value=Math.min(bar.maxValue,bar.value+amount);else bar.value=Math.max(0,bar.value-amount);if(bar.value!==oldValue)logCombatEvent(unit,`${bar.name} ${oldValue} → ${bar.value}（${bar.value-oldValue>=0?'+':''}${bar.value-oldValue}）`,'bar');render()}return}
+      if(barAdjust){const unit=findUnit(barAdjust.dataset.barAdjust);const bar=unit?.bars?.find(item=>item.id===barAdjust.dataset.barId);const amount=Math.floor(Number(barAdjust.closest('.custom-bar')?.querySelector('[data-bar-amount]')?.value));if(bar&&amount>0){const oldValue=bar.value;const newValue=barAdjust.dataset.barAction==='increase'?Math.min(bar.maxValue,bar.value+amount):Math.max(0,bar.value-amount);if(newValue!==oldValue){saveHistory();bar.value=newValue;logCombatEvent(unit,`${bar.name} ${oldValue} → ${bar.value}（${bar.value-oldValue>=0?'+':''}${bar.value-oldValue}）`,'bar');render()}}return}
       const barDelete=event.target.closest('[data-bar-delete]');
       if(barDelete){const unit=findUnit(barDelete.dataset.barDelete);if(unit){saveHistory();unit.bars=(unit.bars||[]).filter(bar=>bar.id!==barDelete.dataset.barId);render()}return}
       const statusDelete=event.target.closest('[data-condition-delete]');
