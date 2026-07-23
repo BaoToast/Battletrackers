@@ -1,10 +1,22 @@
-const CACHE_NAME = 'battle-tracker-777d8cee25';
+const CACHE_NAME = 'battle-tracker-180008182b';
 const APP_SHELL = ['./', './index.html'];
+
+async function precache(cache) {
+  // Force each app-shell file to be fetched straight from the network,
+  // bypassing the browser's own HTTP cache. Without this, a stale
+  // browser-cached copy of index.html could silently get baked into the
+  // Service Worker's cache on "update", making every future update check
+  // report "already latest" while the visible app stays on the old version.
+  await Promise.all(APP_SHELL.map(async url => {
+    const response = await fetch(url, { cache: 'reload' });
+    await cache.put(url, response);
+  }));
+}
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(APP_SHELL))
+      .then(cache => precache(cache))
       .then(() => self.skipWaiting())
   );
 });
@@ -43,7 +55,7 @@ self.addEventListener('fetch', event => {
           // Reuse the preloaded navigation response when available so we don't
           // issue a second, duplicate network request for the same navigation.
           const preload = event.preloadResponse ? await event.preloadResponse : null;
-          const networkResponse = preload || await fetch(event.request);
+          const networkResponse = preload || await fetch(event.request, { cache: 'no-store' });
           if (networkResponse && networkResponse.status === 200) {
             const clone = networkResponse.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
