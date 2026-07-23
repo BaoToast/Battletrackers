@@ -1,4 +1,4 @@
-const CACHE_NAME = 'battle-tracker-180008182b';
+const CACHE_NAME = 'battle-tracker-251d1fae1c';
 const APP_SHELL = ['./', './index.html'];
 
 async function precache(cache) {
